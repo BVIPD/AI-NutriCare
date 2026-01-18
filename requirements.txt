@@ -5,4 +5,4 @@ lightgbm
 pdfplumber
 pytesseract
 Pillow
-spacy==3.7.2
+spacy
