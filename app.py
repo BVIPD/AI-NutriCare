@@ -6,6 +6,8 @@ import pytesseract
 from PIL import Image
 import re
 import spacy
+import streamlit as st
+
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
@@ -26,8 +28,6 @@ def load_spacy():
     return nlp
 
 nlp = load_spacy()
-
-
 
 @st.cache_resource
 def load_model():
