@@ -23,11 +23,13 @@ st.markdown("---")
 def load_spacy():
     return spacy.load("en_core_web_sm")
 
+nlp = load_spacy()
+
+
 @st.cache_resource
 def load_model():
     return joblib.load("model/lightgbm_model.pkl")
 
-nlp = load_spacy()
 model = load_model()
 
 # -------------------- TEXT EXTRACTION (MILESTONE 1) --------------------
