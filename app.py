@@ -21,9 +21,12 @@ st.markdown("---")
 # -------------------- LOAD MODELS SAFELY --------------------
 @st.cache_resource
 def load_spacy():
-    return spacy.load("en_core_web_sm")
+    nlp = spacy.blank("en")
+    nlp.add_pipe("sentencizer")
+    return nlp
 
 nlp = load_spacy()
+
 
 
 @st.cache_resource
