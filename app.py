@@ -6,16 +6,23 @@ import pytesseract
 from PIL import Image
 import re
 import spacy
+from spacy.cli import download
 
 # -------------------- SETUP --------------------
 st.set_page_config(page_title="AI-NutriCare", layout="centered")
 st.title("🥗 AI-NutriCare")
 st.write("AI-driven Personalized Diet Recommendation System")
 
-nlp = spacy.load("en_core_web_sm")
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+
 
 # Load trained ML model (Milestone 2)
-model = joblib.load("lightgbm_model.pkl")
+model = joblib.load("model/lightgbm_model.pkl")
+
 
 # -------------------- TEXT EXTRACTION (M1) --------------------
 def extract_text(uploaded_file):
