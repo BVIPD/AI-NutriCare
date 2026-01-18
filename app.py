@@ -1,13 +1,10 @@
 import streamlit as st
 import pandas as pd
-import joblib
 import pdfplumber
 import pytesseract
 from PIL import Image
 import re
 import spacy
-import streamlit as st
-
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
@@ -20,7 +17,7 @@ st.title("🥗 AI-NutriCare")
 st.caption("AI-driven Personalized Diet Recommendation System")
 st.markdown("---")
 
-# -------------------- LOAD MODELS SAFELY --------------------
+# -------------------- LOAD NLP SAFELY --------------------
 @st.cache_resource
 def load_spacy():
     nlp = spacy.blank("en")
@@ -28,12 +25,6 @@ def load_spacy():
     return nlp
 
 nlp = load_spacy()
-
-@st.cache_resource
-def load_model():
-    return joblib.load("model/lightgbm_model.pkl")
-
-model = load_model()
 
 # -------------------- TEXT EXTRACTION (MILESTONE 1) --------------------
 def extract_text(uploaded_file):
@@ -57,17 +48,10 @@ def extract_text(uploaded_file):
 
     elif ext == "csv":
         df = pd.read_csv(uploaded_file)
-        text = df["doctor_prescription"].iloc[0]
-        numeric_data = df.iloc[0]
+        if "doctor_prescription" in df.columns:
+            text = df["doctor_prescription"].iloc[0]
 
-    return text.strip(), numeric_data
-
-# -------------------- ML PREDICTION (MILESTONE 2) --------------------
-def predict_condition(numeric_data):
-    features = ["age", "glucose", "cholesterol", "blood_pressure", "bmi"]
-    X = pd.DataFrame([{f: numeric_data[f] for f in features}])
-    pred = model.predict(X)[0]
-    return "Abnormal" if pred == 1 else "Normal"
+    return text.strip()
 
 # -------------------- NLP + DIET LOGIC (MILESTONE 3) --------------------
 def generate_diet(text):
@@ -96,10 +80,12 @@ def generate_diet(text):
         diet["condition"].append("Hypertension")
         diet["restricted_foods"].append("salt")
         diet["diet_plan"].append("Reduce sodium intake.")
+        diet["lifestyle_advice"].append("Practice stress management.")
 
     if not diet["condition"]:
         diet["condition"].append("General Health")
         diet["diet_plan"].append("Maintain a balanced diet.")
+        diet["lifestyle_advice"].append("Stay active and hydrated.")
 
     return {
         "condition": ", ".join(diet["condition"]),
@@ -132,18 +118,15 @@ if process_btn:
         st.success("✅ Processing input...")
 
         if uploaded_file:
-            text, numeric_data = extract_text(uploaded_file)
+            text = extract_text(uploaded_file)
         else:
             text = manual_text
-            numeric_data = None
 
         st.subheader("📝 Extracted Text")
         st.write(text[:1000])
 
-        if numeric_data is not None:
-            condition = predict_condition(numeric_data)
-            st.subheader("🩺 ML Predicted Health Status")
-            st.write(condition)
+        st.subheader("🩺 Health Status")
+        st.info("Health condition inferred using medical text analysis.")
 
         diet = generate_diet(text)
 
@@ -158,4 +141,4 @@ if process_btn:
         )
 
 st.markdown("---")
-st.caption("© AI-NutriCare | End-to-End ML + NLP System")
+st.caption("© AI-NutriCare | End-to-End NLP-Based Diet Recommendation System")
