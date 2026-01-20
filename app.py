@@ -15,6 +15,28 @@ st.set_page_config(
     layout="centered"
 )
 
+# --------------------------------------------------
+# SOFT GRADIENT BACKGROUND (OPTION 2 - SUBTLE)
+# --------------------------------------------------
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(to bottom, #f6fff8, #ffffff);
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# --------------------------------------------------
+# HEADER IMAGE (OPTION 1 - SAFE & CLASSY)
+# --------------------------------------------------
+st.image(
+    "https://images.unsplash.com/photo-1498837167922-ddd27525d352",
+    use_column_width=True
+)
+
 st.title("🥗 AI-NutritionalCare")
 st.caption("AI-driven Personalized Diet Recommendation System")
 st.divider()
@@ -56,8 +78,8 @@ def extract_patient_name(text):
 
 
 def extract_conditions(text):
-    t = text.lower()
     conditions = []
+    t = text.lower()
     if "diabetes" in t:
         conditions.append("Diabetes")
     if "cholesterol" in t:
@@ -67,16 +89,16 @@ def extract_conditions(text):
     return conditions if conditions else ["General Health"]
 
 # --------------------------------------------------
-# MEAL DATA (ONLY MEAL NAMES)
+# MEALS (NO INGREDIENTS / NO COOKING STEPS)
 # --------------------------------------------------
 VEG_MEALS = [
-    "Vegetable Khichdi","Chapati & Mixed Veg Sabzi","Vegetable Upma","Oats Porridge",
+    "Vegetable Khichdi","Chapati & Veg Sabzi","Vegetable Upma","Oats Porridge",
     "Curd Rice","Vegetable Dalia","Paneer Bhurji","Lemon Rice",
-    "Idli & Sambar","Vegetable Poha","Rajma Rice","Stuffed Paratha",
-    "Veg Pulao","Sprouts Salad","Tomato Soup","Veg Sandwich",
-    "Masala Oats","Curd Bowl","Veg Fried Rice","Paneer Salad",
-    "Veg Soup","Ragi Porridge","Cabbage Fry","Besan Omelette",
-    "Dal & Chapati","Veg Cutlet","Bottle Gourd Khichdi","Fruit Bowl"
+    "Idli & Sambar","Vegetable Poha","Rajma Rice","Veg Pulao",
+    "Sprouts Salad","Tomato Soup","Veg Sandwich","Masala Oats",
+    "Curd Bowl","Veg Fried Rice","Paneer Salad","Veg Soup",
+    "Ragi Porridge","Dal & Chapati","Veg Cutlet","Fruit Bowl",
+    "Vegetable Khichdi","Chapati & Veg Sabzi","Vegetable Upma","Oats Porridge"
 ]
 
 NONVEG_MEALS = [
@@ -84,24 +106,24 @@ NONVEG_MEALS = [
     "Chicken Soup","Egg Fried Rice","Grilled Fish","Chicken Sandwich",
     "Egg Bhurji","Chicken Pulao","Fish Fry","Chicken Curry",
     "Egg Curry","Chicken Salad","Fish Soup","Egg Toast",
-    "Chicken Wrap","Grilled Chicken & Veg","Fish Rice Bowl","Egg Salad",
-    "Chicken Stir Fry","Fish Lemon Curry","Egg Rice","Chicken Stew",
-    "Fish Stew","Egg Paratha","Chicken Cutlet","Protein Bowl"
+    "Chicken Wrap","Fish Rice Bowl","Egg Salad","Chicken Stir Fry",
+    "Fish Lemon Curry","Egg Rice","Chicken Stew","Protein Bowl",
+    "Egg Omelette","Grilled Chicken","Fish Curry","Boiled Eggs"
 ]
 
 def generate_month_plan(pref):
     meals = VEG_MEALS if pref == "Vegetarian" else NONVEG_MEALS
-    return meals[:28]   # no repetition
+    return meals[:28]
 
 # --------------------------------------------------
-# PDF GENERATOR (MEALS ONLY)
+# PDF GENERATOR
 # --------------------------------------------------
 def generate_pdf(patient, conditions, plan):
     buffer = BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-    y = height - 40
 
+    y = height - 40
     c.setFont("Helvetica-Bold", 14)
     c.drawString(40, y, "AI-NutritionalCare Diet Report")
     y -= 30
@@ -113,13 +135,13 @@ def generate_pdf(patient, conditions, plan):
     y -= 30
 
     for i, food in enumerate(plan, 1):
-        if y < 100:
+        if y < 80:
             c.showPage()
             y = height - 40
 
-        c.setFont("Helvetica-Bold", 11)
+        c.setFont("Helvetica", 11)
         c.drawString(40, y, f"Day {i}: {food}")
-        y -= 20
+        y -= 18
 
     c.save()
     buffer.seek(0)
@@ -128,16 +150,8 @@ def generate_pdf(patient, conditions, plan):
 # --------------------------------------------------
 # INPUT UI
 # --------------------------------------------------
-uploaded = st.file_uploader(
-    "📄 Upload Medical Report (PDF / CSV / TXT)",
-    type=["pdf", "csv", "txt"]
-)
-
-preference = st.radio(
-    "🥦 Food Preference",
-    ["Vegetarian", "Non-Vegetarian"]
-)
-
+uploaded = st.file_uploader("📄 Upload Medical Report (PDF / CSV / TXT)", type=["pdf","csv","txt"])
+preference = st.radio("🥦 Food Preference", ["Vegetarian", "Non-Vegetarian"])
 run = st.button("✨ Generate Diet Recommendation")
 
 # --------------------------------------------------
@@ -145,7 +159,7 @@ run = st.button("✨ Generate Diet Recommendation")
 # --------------------------------------------------
 if run:
     if not uploaded:
-        st.warning("Please upload a file.")
+        st.warning("Please upload a medical report.")
         st.stop()
 
     raw_text = extract_text(uploaded)
@@ -153,49 +167,42 @@ if run:
     conditions = extract_conditions(raw_text)
     month_plan = generate_month_plan(preference)
 
-    # Faculty-style Output
     st.subheader("📄 Output")
     st.markdown(f"""
 **Patient:** {patient}  
 **Medical Condition:** {', '.join(conditions)}  
-**Listing 1:** Sample Diet Plan from AI-NutritionalCare
+**Listing 1:** AI-Generated Personalized Diet Plan
 """)
 
-    # Month Plan UI
     st.subheader("📅 1-Month Diet Plan (Day-wise)")
-    tabs = st.tabs(["Week 1", "Week 2", "Week 3", "Week 4"])
+    tabs = st.tabs(["Week 1","Week 2","Week 3","Week 4"])
 
-    day_index = 0
+    idx = 0
     for tab in tabs:
         with tab:
             for _ in range(7):
-                if day_index >= len(month_plan):
-                    break
-                with st.expander(f"🍽️ Day {day_index + 1}"):
-                    st.success(month_plan[day_index])
-                day_index += 1
+                st.success(f"🍽️ Day {idx+1}: {month_plan[idx]}")
+                idx += 1
 
     # Downloads
-    diet_json = {
-        "patient": patient,
-        "conditions": conditions,
-        "diet_plan": [
-            {"day": i + 1, "meal": meal}
-            for i, meal in enumerate(month_plan)
-        ]
-    }
-
     st.download_button(
         "⬇️ Download JSON",
-        data=pd.Series(diet_json).to_json(),
+        data=pd.Series({
+            "patient": patient,
+            "conditions": conditions,
+            "diet_plan": month_plan
+        }).to_json(),
         file_name="diet_plan.json",
         mime="application/json"
     )
 
-    pdf_file = generate_pdf(patient, conditions, month_plan)
+    pdf = generate_pdf(patient, conditions, month_plan)
     st.download_button(
         "⬇️ Download PDF",
-        data=pdf_file,
-        file_name=f"{patient.replace(' ', '_')}_DietPlan.pdf",
+        data=pdf,
+        file_name=f"{patient.replace(' ','_')}_DietPlan.pdf",
         mime="application/pdf"
     )
+
+st.divider()
+st.caption("© AI-NutritionalCare | Internship Final Submission")
