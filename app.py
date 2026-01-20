@@ -7,7 +7,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
 # --------------------------------------------------
-# PAGE CONFIG (DO NOT CHANGE)
+# PAGE CONFIG
 # --------------------------------------------------
 st.set_page_config(
     page_title="AI-NutritionalCare",
@@ -66,9 +66,8 @@ def extract_conditions(text):
         conditions.append("Hypertension")
     return conditions if conditions else ["General Health"]
 
-
 # --------------------------------------------------
-# DIET DATA (BEGINNER-LEVEL RECIPES)
+# DIET DATA (NO COOKING STEPS)
 # --------------------------------------------------
 VEG_MEALS = [
     ("Vegetable Khichdi","Rice, dal, carrot, beans"),
@@ -100,6 +99,7 @@ VEG_MEALS = [
     ("Bottle Gourd Khichdi","Rice, dal, bottle gourd"),
     ("Fruit Bowl","Seasonal fruits")
 ]
+
 NONVEG_MEALS = [
     ("Egg Omelette","Eggs, onion"),
     ("Grilled Chicken","Chicken"),
@@ -131,17 +131,12 @@ NONVEG_MEALS = [
     ("Protein Bowl","Chicken, eggs")
 ]
 
-
 def generate_month_plan(pref):
     meals = VEG_MEALS if pref == "Vegetarian" else NONVEG_MEALS
-    month = []
-    for i in range(28):
-        month.append(meals[i % len(meals)])
-    return month
-
+    return meals[:28]
 
 # --------------------------------------------------
-# PDF GENERATOR
+# PDF GENERATOR (NO STEPS)
 # --------------------------------------------------
 def generate_pdf(patient, conditions, plan):
     buffer = BytesIO()
@@ -160,7 +155,7 @@ def generate_pdf(patient, conditions, plan):
     y -= 30
 
     day = 1
-    for food, ing, steps in plan:
+    for food, ing in plan:
         if y < 100:
             c.showPage()
             y = height - 40
@@ -171,16 +166,12 @@ def generate_pdf(patient, conditions, plan):
 
         c.setFont("Helvetica", 10)
         c.drawString(50, y, f"Ingredients: {ing}")
-        y -= 15
-        c.drawString(50, y, f"Steps: {steps}")
         y -= 20
-
         day += 1
 
     c.save()
     buffer.seek(0)
     return buffer
-
 
 # --------------------------------------------------
 # INPUT UI
@@ -202,7 +193,6 @@ if run:
     conditions = extract_conditions(raw_text)
     month_plan = generate_month_plan(preference)
 
-    # ---------- Sir-Style Output ----------
     st.subheader("📄 Output")
     st.markdown(f"""
 **Patient:** {patient}  
@@ -210,30 +200,25 @@ if run:
 **Listing 1:** Sample Diet Plan from AI-NutritionalCare
 """)
 
-    # ---------- Month Plan ----------
-    st.subheader("📅 1-Month Diet Plan (Day-wise with Recipes)")
+    st.subheader("📅 1-Month Diet Plan (Day-wise)")
     tabs = st.tabs(["Week 1", "Week 2", "Week 3", "Week 4"])
 
     day_index = 0
-    for w, tab in enumerate(tabs):
+    for tab in tabs:
         with tab:
-            for d in range(7):
-                food, ing, steps = month_plan[day_index]
+            for _ in range(7):
+                food, ing = month_plan[day_index]
                 with st.expander(f"🍽️ Day {day_index + 1}: {food}"):
                     st.markdown("**🧺 Ingredients**")
                     st.write(ing)
-                    st.markdown("**👩‍🍳 How to Cook**")
-                    for i, s in enumerate(steps.split("."), 1):
-                        if s.strip():
-                            st.write(f"{i}. {s.strip()}")
                 day_index += 1
 
-    # ---------- Downloads ----------
+    # Downloads
     diet_json = {
         "patient": patient,
         "conditions": conditions,
         "diet_plan": [
-            {"day": i + 1, "meal": m[0], "ingredients": m[1], "steps": m[2]}
+            {"day": i + 1, "meal": m[0], "ingredients": m[1]}
             for i, m in enumerate(month_plan)
         ]
     }
