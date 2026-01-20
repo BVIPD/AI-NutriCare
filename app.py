@@ -223,7 +223,7 @@ if run:
                 with st.expander(f"🍽️ Day {day_index + 1}: {food}"):
                     st.markdown("**🧺 Ingredients**")
                     st.write(ing)
-                    st.markdown("**👩‍🍳 How to Cook (Beginner Friendly)**")
+                    st.markdown("**👩‍🍳 How to Cook**")
                     for i, s in enumerate(steps.split("."), 1):
                         if s.strip():
                             st.write(f"{i}. {s.strip()}")
