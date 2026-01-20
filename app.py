@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
 import pdfplumber
-import pytesseract
 from PIL import Image
+import pytesseract
 import re
 import spacy
-import io
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+import io
 
-# ---------------- PAGE CONFIG ----------------
+# -------------------- PAGE CONFIG --------------------
 st.set_page_config(
     page_title="AI-NutritionalCare",
     page_icon="🥗",
@@ -20,7 +20,7 @@ st.title("🥗 AI-NutritionalCare")
 st.caption("AI-driven Personalized Diet Recommendation System")
 st.markdown("---")
 
-# ---------------- NLP SAFE LOAD ----------------
+# -------------------- NLP --------------------
 @st.cache_resource
 def load_spacy():
     nlp = spacy.blank("en")
@@ -29,72 +29,101 @@ def load_spacy():
 
 nlp = load_spacy()
 
-# ---------------- UTILITIES ----------------
+# -------------------- FOOD + RECIPES --------------------
+FOOD_DB = {
+    "veg": {
+        "breakfast": [
+            ("Oats with fruits", "Cook oats in water/milk. Add fruits and nuts."),
+            ("Vegetable upma", "Roast rava, cook with vegetables and spices."),
+            ("Moong dal chilla", "Soak dal, grind, cook like dosa."),
+            ("Idli with sambar", "Steam fermented batter. Serve with sambar.")
+        ],
+        "lunch": [
+            ("Brown rice & vegetables", "Steam rice. Stir-fry vegetables."),
+            ("Quinoa salad", "Cook quinoa. Add veggies and olive oil."),
+            ("Chapati & paneer curry", "Cook paneer with tomato gravy."),
+            ("Vegetable khichdi", "Pressure cook rice, dal & vegetables.")
+        ],
+        "snack": [
+            ("Fruit bowl", "Mix seasonal fruits."),
+            ("Sprouts salad", "Steam sprouts, add lemon & salt."),
+            ("Roasted nuts", "Dry roast peanuts/almonds."),
+            ("Low-fat yogurt", "Serve chilled.")
+        ],
+        "dinner": [
+            ("Vegetable soup", "Boil vegetables, blend lightly."),
+            ("Tofu salad", "Grill tofu, mix with veggies."),
+            ("Steamed vegetables", "Steam with minimal salt."),
+            ("Dal & chapati", "Cook dal, serve with chapati.")
+        ]
+    },
+    "nonveg": {
+        "breakfast": [
+            ("Egg white omelette", "Cook egg whites with veggies."),
+            ("Boiled eggs & toast", "Boil eggs, serve with toast."),
+            ("Chicken sandwich", "Grilled chicken + whole wheat bread."),
+            ("Vegetable omelette", "Eggs with vegetables.")
+        ],
+        "lunch": [
+            ("Grilled chicken & rice", "Grill chicken, serve with rice."),
+            ("Fish curry & brown rice", "Cook fish with spices."),
+            ("Chicken salad", "Boiled chicken + veggies."),
+            ("Egg curry & chapati", "Boiled eggs in gravy.")
+        ],
+        "snack": [
+            ("Boiled eggs", "Sprinkle pepper."),
+            ("Greek yogurt", "Serve chilled."),
+            ("Fruit & nuts", "Simple mix."),
+            ("Roasted chana", "Dry roast.")
+        ],
+        "dinner": [
+            ("Grilled fish", "Marinate & grill."),
+            ("Chicken soup", "Boil chicken with herbs."),
+            ("Egg bhurji", "Scramble eggs with veggies."),
+            ("Steamed fish & salad", "Steam fish lightly.")
+        ]
+    }
+}
+
+# -------------------- HELPERS --------------------
 def extract_patient_name(text):
     patterns = [
-        r"patient\s*name\s*[:\-]\s*(.+)",
-        r"patient\s*[:\-]\s*(.+)",
-        r"name\s*[:\-]\s*(.+)"
+        r"patient\s*name\s*[:\-]\s*(.*)",
+        r"patient\s*[:\-]\s*(.*)",
+        r"name\s*[:\-]\s*(.*)"
     ]
     for p in patterns:
-        match = re.search(p, text, re.IGNORECASE)
-        if match:
-            return match.group(1).strip().split("\n")[0]
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
     return "Unknown Patient"
 
-def extract_text(uploaded_file):
-    ext = uploaded_file.name.split(".")[-1].lower()
+def extract_text(file):
+    ext = file.name.split(".")[-1].lower()
     text = ""
 
     if ext == "pdf":
-        with pdfplumber.open(uploaded_file) as pdf:
+        with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
+                if page.extract_text():
+                    text += page.extract_text() + "\n"
 
     elif ext in ["png", "jpg", "jpeg"]:
         try:
-            img = Image.open(uploaded_file)
-            text = pytesseract.image_to_string(img)
+            text = pytesseract.image_to_string(Image.open(file))
         except:
-            text = ""
+            text = "OCR not supported."
 
     elif ext == "txt":
-        text = uploaded_file.read().decode("utf-8")
+        text = file.read().decode()
 
     elif ext == "csv":
-        df = pd.read_csv(uploaded_file)
-        if "doctor_prescription" in df.columns:
-            text = df["doctor_prescription"].iloc[0]
-        elif "patient_name" in df.columns:
-            text = "Patient Name: " + df["patient_name"].iloc[0]
+        df = pd.read_csv(file)
+        text = df.to_string()
 
-    return text.strip()
+    return text
 
-# ---------------- DIET ENGINE ----------------
-def generate_monthly_diet(condition_text, food_pref):
-    veg = food_pref == "Vegetarian"
-
-    base_protein = (
-        ["lentils", "paneer", "tofu"]
-        if veg else
-        ["grilled chicken", "fish", "eggs"]
-    )
-
-    month_plan = {}
-
-    for week in range(1, 5):
-        month_plan[f"Week {week}"] = {
-            "Breakfast": f"Oats, fruits, {base_protein[0]}",
-            "Lunch": f"Brown rice, vegetables, {base_protein[1]}",
-            "Snack": "Fruits or nuts",
-            "Dinner": f"Salad, soup, {base_protein[2]}"
-        }
-
-    return month_plan
-
-def infer_conditions(text):
+def analyze_conditions(text):
     conditions = []
     if "diabetes" in text.lower():
         conditions.append("Diabetes")
@@ -102,11 +131,23 @@ def infer_conditions(text):
         conditions.append("High Cholesterol")
     if "hypertension" in text.lower() or "blood pressure" in text.lower():
         conditions.append("Hypertension")
-
     return conditions or ["General Health"]
 
-# ---------------- PDF GENERATOR ----------------
-def generate_pdf(patient, conditions, diet):
+def generate_month_plan(food_type):
+    plan = {}
+    db = FOOD_DB[food_type]
+
+    for week in range(1, 5):
+        plan[f"Week {week}"] = {}
+        for meal in db:
+            item, recipe = db[meal][week % 4]
+            plan[f"Week {week}"][meal.capitalize()] = {
+                "Food": item,
+                "Recipe": recipe
+            }
+    return plan
+
+def create_pdf(patient, conditions, month_plan):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
@@ -115,22 +156,23 @@ def generate_pdf(patient, conditions, diet):
     c.setFont("Helvetica-Bold", 16)
     c.drawString(50, y, "AI-NutritionalCare Diet Report")
 
-    y -= 40
+    y -= 30
     c.setFont("Helvetica", 11)
     c.drawString(50, y, f"Patient: {patient}")
     y -= 20
     c.drawString(50, y, f"Medical Conditions: {', '.join(conditions)}")
 
-    y -= 30
-    for week, meals in diet.items():
+    for week, meals in month_plan.items():
+        y -= 30
         c.setFont("Helvetica-Bold", 12)
         c.drawString(50, y, week)
-        y -= 20
+
         c.setFont("Helvetica", 10)
-        for m, v in meals.items():
-            c.drawString(60, y, f"{m}: {v}")
+        for meal, data in meals.items():
             y -= 15
-        y -= 10
+            c.drawString(60, y, f"{meal}: {data['Food']}")
+            y -= 12
+            c.drawString(75, y, f"Recipe: {data['Recipe']}")
 
         if y < 100:
             c.showPage()
@@ -140,67 +182,58 @@ def generate_pdf(patient, conditions, diet):
     buffer.seek(0)
     return buffer
 
-# ---------------- UI INPUT ----------------
+# -------------------- UI --------------------
 st.subheader("📄 Upload Medical Report")
 
-food_pref = st.radio("🍽 Food Preference", ["Vegetarian", "Non-Vegetarian"])
+food_choice = st.radio("Food Preference", ["Vegetarian", "Non-Vegetarian"])
+food_key = "veg" if food_choice == "Vegetarian" else "nonveg"
 
-uploaded_file = st.file_uploader(
-    "Upload PDF / Image / TXT / CSV",
-    type=["pdf", "png", "jpg", "jpeg", "txt", "csv"]
-)
+uploaded_file = st.file_uploader("Upload PDF / Image / TXT / CSV",
+                                 type=["pdf", "png", "jpg", "jpeg", "txt", "csv"])
+manual_text = st.text_area("OR paste doctor prescription text", height=150)
 
-manual_text = st.text_area("OR paste doctor prescription text", height=120)
+if st.button("🔍 Generate Diet Recommendation"):
+    text = extract_text(uploaded_file) if uploaded_file else manual_text
+    patient = extract_patient_name(text)
+    conditions = analyze_conditions(text)
+    month_plan = generate_month_plan(food_key)
 
-process = st.button("🔍 Generate Diet Recommendation")
+    st.subheader("🧾 Sir-Style Output")
+    st.code(f"""
+Patient: {patient}
+Medical Condition: {", ".join(conditions)}
+Listing 1: Sample Diet Plan from AI-NutritionalCare
+""")
 
-# ---------------- EXECUTION ----------------
-if process:
-    if not uploaded_file and not manual_text.strip():
-        st.warning("Please upload a file or paste text.")
-    else:
-        with st.spinner("Analyzing medical data..."):
-            text = extract_text(uploaded_file) if uploaded_file else manual_text
+    st.subheader("📅 1-Month Diet Plan with Recipes")
+    for week, meals in month_plan.items():
+        st.markdown(f"### {week}")
+        for meal, data in meals.items():
+            st.write(f"**{meal}:** {data['Food']}")
+            st.caption(f"Recipe: {data['Recipe']}")
 
-            patient = extract_patient_name(text)
-            conditions = infer_conditions(text)
-            monthly_diet = generate_monthly_diet(text, food_pref)
+    # JSON Download
+    json_data = {
+        "patient": patient,
+        "conditions": conditions,
+        "monthly_plan": month_plan
+    }
 
-        st.markdown("## 📋 Final Diet Plan")
+    st.download_button(
+        "⬇️ Download JSON",
+        data=pd.Series(json_data).to_json(),
+        file_name=f"{patient}_diet_plan.json",
+        mime="application/json"
+    )
 
-        st.markdown(f"""
-        **Patient:** {patient}  
-        **Medical Condition:** {", ".join(conditions)}
-        """)
-
-        for week, meals in monthly_diet.items():
-            with st.expander(week):
-                for k, v in meals.items():
-                    st.write(f"**{k}:** {v}")
-
-        json_data = {
-            "patient": patient,
-            "conditions": conditions,
-            "diet_plan": monthly_diet
-        }
-
-        st.download_button(
-            "⬇️ Download JSON",
-            data=pd.Series(json_data).to_json(),
-            file_name=f"{patient}_DietPlan.json",
-            mime="application/json"
-        )
-
-        pdf_file = generate_pdf(patient, conditions, monthly_diet)
-
-        st.download_button(
-            "⬇️ Download PDF",
-            data=pdf_file,
-            file_name=f"{patient}_DietPlan.pdf",
-            mime="application/pdf"
-        )
-
-        st.success("✅ Diet plan generated successfully!")
+    # PDF Download
+    pdf_file = create_pdf(patient, conditions, month_plan)
+    st.download_button(
+        "⬇️ Download PDF",
+        data=pdf_file,
+        file_name=f"{patient}_diet_plan.pdf",
+        mime="application/pdf"
+    )
 
 st.markdown("---")
-st.caption("© AI-NutritionalCare | Internship Project – End-to-End Deployment")
+st.caption("© AI-NutritionalCare | Internship-Grade Deployed System")
