@@ -253,4 +253,3 @@ if run:
         file_name=f"{patient.replace(' ', '_')}_DietPlan.pdf",
         mime="application/pdf"
     )
-this is my before code! so now i think you are not forgetting anything? including doanload pdf?
