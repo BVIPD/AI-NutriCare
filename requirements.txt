@@ -1,4 +1,6 @@
 streamlit
 pandas
 pdfplumber
-fpdf
+pytesseract
+Pillow
+reportlab
